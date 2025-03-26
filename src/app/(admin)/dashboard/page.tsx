@@ -12,7 +12,7 @@ import { INTERVIEW_CATEGORY } from "@/constants";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { CalendarIcon, CheckCircle2Icon, ClockIcon, XCircleIcon } from "lucide-react";
+import { CalendarIcon, CheckCircle2Icon, ClockIcon, UsersIcon, XCircleIcon } from "lucide-react";
 import { format } from "date-fns";
 import CommentDialog from "@/components/CommentDialog";
 
@@ -32,16 +32,40 @@ function DashboardPage() {
     }
   };
 
-  if (!interviews || !users) return <LoaderUI />;
+  if (!interviews || !users) {
+    return (
+      <div className="container mx-auto py-10">
+        <LoaderUI />
+      </div>
+    );
+  }
+
+  if (interviews.length === undefined || users.length === undefined) {
+    return (
+      <div className="container mx-auto py-10">
+        <div className="text-center text-red-500">
+          Failed to load dashboard data. Please try refreshing the page.
+        </div>
+      </div>
+    );
+  }
 
   const groupedInterviews = groupInterviews(interviews);
 
   return (
     <div className="container mx-auto py-10">
-      <div className="flex items-center mb-8">
-        <Link href="/schedule">
-          <Button>Schedule New Interview</Button>
-        </Link>
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center gap-4">
+          <Link href="/schedule">
+            <Button>Schedule New Interview</Button>
+          </Link>
+          <Link href="/admin/users">
+            <Button variant="outline" className="gap-2">
+              <UsersIcon className="h-4 w-4" />
+              Manage Users
+            </Button>
+          </Link>
+        </div>
       </div>
 
       <div className="space-y-8">
@@ -61,7 +85,7 @@ function DashboardPage() {
                     const startTime = new Date(interview.startTime);
 
                     return (
-                      <Card className="hover:shadow-md transition-all">
+                      <Card key={interview._id} className="hover:shadow-md transition-all">
                         {/* CANDIDATE INFO */}
                         <CardHeader className="p-4">
                           <div className="flex items-center gap-3">
@@ -124,4 +148,5 @@ function DashboardPage() {
     </div>
   );
 }
+
 export default DashboardPage;

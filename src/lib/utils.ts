@@ -21,10 +21,12 @@ export const groupInterviews = (interviews: Interview[]) => {
       acc.succeeded = [...(acc.succeeded || []), interview];
     } else if (interview.status === "failed") {
       acc.failed = [...(acc.failed || []), interview];
-    } else if (isBefore(date, now)) {
+    } else if (interview.status === "completed") {
       acc.completed = [...(acc.completed || []), interview];
-    } else if (isAfter(date, now)) {
+    } else if (interview.status === "upcoming" || isAfter(date, now)) {
       acc.upcoming = [...(acc.upcoming || []), interview];
+    } else {
+      acc.completed = [...(acc.completed || []), interview];
     }
 
     return acc;

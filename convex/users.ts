@@ -23,14 +23,42 @@ export const syncUser = mutation({
   },
 });
 
+export const updateUserRole = mutation({
+  args: {
+    clerkId: v.string(),
+    role: v.union(v.literal("candidate"), v.literal("interviewer")),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
+      .first();
+
+    if (!user) throw new Error("User not found");
+
+    return await ctx.db.patch(user._id, {
+      role: args.role,
+    });
+  },
+});
+
 export const getUsers = query({
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("User is not authenticated");
+    try {
+      const users = await ctx.db
+        .query("users")
+        .withIndex("by_clerk_id")
+        .collect();
 
-    const users = await ctx.db.query("users").collect();
-
-    return users;
+      console.log("Users fetched:", users);
+      return users;
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      return [];
+    }
   },
 });
 

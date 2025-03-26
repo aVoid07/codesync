@@ -1,3 +1,5 @@
+"use client";
+
 import { useUser } from "@clerk/nextjs";
 import { useStreamVideoClient } from "@stream-io/video-react-sdk";
 import { useMutation, useQuery } from "convex/react";
@@ -35,10 +37,27 @@ function InterviewScheduleUI() {
 
   const interviews = useQuery(api.interviews.getAllInterviews) ?? [];
   const users = useQuery(api.users.getUsers) ?? [];
-  const createInterview = useMutation(api.interviews.createInterview);
+  const currentUser = useQuery(api.users.getUserByClerkId, { clerkId: user?.id ?? "" });
+
+  console.log("Raw users data:", users);
+  console.log("Current user:", user);
+  console.log("Current user ID:", user?.id);
+  console.log("Current user in database:", currentUser);
+
+  // Debug each user's role
+  users?.forEach(u => {
+    console.log(`User ${u.name} (${u.clerkId}) has role:`, u.role);
+  });
 
   const candidates = users?.filter((u) => u.role === "candidate");
+  console.log("Filtered candidates:", candidates);
+  console.log("Candidate clerkIds:", candidates?.map(c => c.clerkId));
+  
   const interviewers = users?.filter((u) => u.role === "interviewer");
+  console.log("Filtered interviewers:", interviewers);
+  console.log("Interviewer clerkIds:", interviewers?.map(i => i.clerkId));
+
+  const createInterview = useMutation(api.interviews.createInterview);
 
   const [formData, setFormData] = useState({
     title: "",
@@ -50,7 +69,14 @@ function InterviewScheduleUI() {
   });
 
   const scheduleMeeting = async () => {
-    if (!client || !user) return;
+    if (!client || !user) {
+      toast.error("Please sign in to schedule a meeting");
+      return;
+    }
+    if (!currentUser) {
+      toast.error("User not found in database. Please try signing out and back in.");
+      return;
+    }
     if (!formData.candidateId || formData.interviewerIds.length === 0) {
       toast.error("Please select both candidate and at least one interviewer");
       return;
@@ -64,9 +90,15 @@ function InterviewScheduleUI() {
       const meetingDate = new Date(date);
       meetingDate.setHours(parseInt(hours), parseInt(minutes), 0);
 
+      console.log("Current user:", user);
+      console.log("User ID:", user.id);
+      console.log("User email:", user.emailAddresses?.[0]?.emailAddress);
+      console.log("Current user in database:", currentUser);
+
       const id = crypto.randomUUID();
       const call = client.call("default", id);
 
+      console.log("Creating Stream call with ID:", id);
       await call.getOrCreate({
         data: {
           starts_at: meetingDate.toISOString(),
@@ -75,6 +107,16 @@ function InterviewScheduleUI() {
             additionalDetails: description,
           },
         },
+      });
+
+      console.log("Creating interview with data:", {
+        title,
+        description,
+        startTime: meetingDate.getTime(),
+        status: "upcoming",
+        streamCallId: id,
+        candidateId,
+        interviewerIds,
       });
 
       await createInterview({
@@ -99,8 +141,14 @@ function InterviewScheduleUI() {
         interviewerIds: user?.id ? [user.id] : [],
       });
     } catch (error) {
-      console.error(error);
-      toast.error("Failed to schedule meeting. Please try again.");
+      console.error("Error scheduling meeting:", error);
+      if (error instanceof Error) {
+        console.error("Error details:", {
+          message: error.message,
+          stack: error.stack,
+        });
+      }
+      toast.error(error instanceof Error ? error.message : "Failed to schedule meeting. Please try again.");
     } finally {
       setIsCreating(false);
     }
@@ -245,7 +293,6 @@ function InterviewScheduleUI() {
                 </div>
 
                 {/* TIME */}
-
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Time</label>
                   <Select
@@ -306,4 +353,5 @@ function InterviewScheduleUI() {
     </div>
   );
 }
+
 export default InterviewScheduleUI;

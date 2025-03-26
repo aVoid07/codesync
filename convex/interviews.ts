@@ -3,12 +3,32 @@ import { v } from "convex/values";
 
 export const getAllInterviews = query({
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthorized");
+    try {
+      const identity = await ctx.auth.getUserIdentity();
+      if (!identity) {
+        console.log("No identity found in getAllInterviews");
+        return [];
+      }
 
-    const interviews = await ctx.db.query("interviews").collect();
+      console.log("User identity in getAllInterviews:", identity);
 
-    return interviews;
+      const interviews = await ctx.db.query("interviews").collect();
+      console.log(`Fetched ${interviews.length} interviews`);
+      
+      // Log each interview's status and start time
+      interviews.forEach(interview => {
+        console.log(`Interview ${interview._id}:`, {
+          status: interview.status,
+          startTime: new Date(interview.startTime).toISOString(),
+          title: interview.title
+        });
+      });
+
+      return interviews;
+    } catch (error) {
+      console.error("Error in getAllInterviews:", error);
+      return [];
+    }
   },
 });
 
@@ -47,12 +67,32 @@ export const createInterview = mutation({
     interviewerIds: v.array(v.string()),
   },
   handler: async (ctx, args) => {
+    console.log("createInterview called with args:", args);
+    
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthorized");
+    console.log("Identity in createInterview:", identity);
+    
+    if (!identity) {
+      console.error("No identity found in createInterview");
+      throw new Error("Unauthorized - Please sign in to create an interview");
+    }
 
-    return await ctx.db.insert("interviews", {
-      ...args,
-    });
+    try {
+      // Determine the initial status based on start time
+      const now = Date.now();
+      const initialStatus = args.startTime > now ? "upcoming" : "completed";
+
+      // Create the interview
+      const result = await ctx.db.insert("interviews", {
+        ...args,
+        status: initialStatus,
+      });
+      console.log("Interview created successfully:", result);
+      return result;
+    } catch (error) {
+      console.error("Error creating interview:", error);
+      throw error;
+    }
   },
 });
 
